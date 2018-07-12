@@ -1,0 +1,356 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+* * *
+
+## Part 1: GSS Data (through 2012)
+
+### How Collection Happens and Its Implications for the Scope of Inference
+
+Since 1972, the National Opinion Research Center at the University of Chicago (NORC) has produced the **General Social Survey (GSS)** (annually initially; biannually in recent decades). As a broad survey of U.S. demographics and public opinion, the GSS "has provided politicians, policymakers, and scholars with a clear and unbiased perspective on what Americans think and feel about such issues as national spending priorities, crime and punishment, intergroup relations, and confidence in institutions" (see <http://gss.norc.org/>). 
+
+Each edition of the survey between 1972 and 2004 has drawn a random **sample** from its target population of non-institutionalized English-speaking persons within the United States 18 years of age or over, to which Spanish-speaking persons have been added since 2006. In the `r max(gss$year)` edition provided through the Coursera MOOC *Inferential Statistics* from the *Statistic in R* sequence offered by Duke University, for example, the GSS interviewed `r nrow(gss %>% filter(year == max(gss$year)))` people: `r nrow(gss %>% filter(year == max(gss$year), sex == "Female"))` women, `r nrow(gss %>% filter(year == max(gss$year), sex == "Male"))` men; `r nrow(gss %>% filter(year == max(gss$year), race == "Black"))` black, `r nrow(gss %>% filter(year == max(gss$year), race == "White"))` white, and `r nrow(gss %>% filter(year == max(gss$year), race == "Other"))` other. These interviews typically take about one and a half hours to complete and, to the extent possible, the exact wording of questions is retained from year to year to allow for cross-survey comparisons.
+
+The survey's **study design** is observational rather than experimental: we can't draw conclusions about the direction of cause-and-effect for any correlations we might discover. But both the large sample size and the survey's independent random sampling method mean our findings should be generalizable to the broader target population and should allow for making solid inferential claims about the center and spread of this data.
+
+Nevertheless, the choice to sample from only "non-institutionalized" adults means the data will likely underrepresent those types of people who are demographically *overrepresented* in the population of institutionalized U.S. adults --- not a minor consideration for a survey that attempts to cover such matters as the social attitudes toward race, income inequality, access to healthcare, and the role of government that we'll address below. 
+
+* * *
+
+## Part 2: Research Questions
+
+Of particular interest to me in the collection of survey items for which the GSS provides data are a set that ask about **attitudes toward government intervention** in matters of income inequality (`HELPPOOR`), healthcare (`HELPSICK`), the historical impact of race (`HELPBLK`), and in general (`HELPNOT`). Asking subjects to place themselves on a scale of 1 to 5, the survey asks:
+
+* VAR: `HELPPOOR` -- Some people think that the government in Washington should do everything possible to improve the standard of living of all poor Americans; they are at Point 1 on this card. Other people think it is not the government's responsibility, and that each person should take care of himself; they are at Point 5 on this card.
+
+* VAR: `HELPSICK` -- In general, some people think that it is the responsibility of the government in Washington to see to it that people have help in paying for doctors and hospital bills. Others think that these matters are not the responsibility of the federal government and that people should take care of these things themselves.
+
+* VAR: `HELPBLK` -- Some people think that (Blacks/Negroes/African-Americans) have been discriminated against for so long that the government has a special obligation to help improve their living standards. Others believe that the government should not be giving special treatment to (Blacks/Negroes/African-Americans).
+
+* VAR: `HELPNOT` -- Some people think that the government in Washington is trying to do too many things that should be left to individuals and private businesses. Others disagree and think that the government should do even more to solve our country's problems. Still others have opinions somewhere in between.
+
+In what follows below, I'd like to explore how the answers to these questions have shifted -- whether in tandem, or in different directions -- in the surveys done between 2008 and 2012, covering a period of American history that brought attitudes toward these subjects into sharp focus: the election to the presidency of Barack Obama, the U.S.'s first black president; the passage of the Affordable Care Act under his administration, a controversial attempt at providing something like guaranteed healthcare coverage; the limited-government backlash movement known as the "Tea Party" that brought a wave of right-leaning members into Congress in 2010; and Obama's re-election in 2012, setting the stage for a swing of the pendulum in the next cycle that brought the U.S. the very different politics represented by Donald Trump.
+
+Specifically, I'd like to ask the following:
+
+1. As of 2012, how supportive/resistant are Americans to the idea that **race continues to matter** in U.S. life and **requires active measures** on the part of the federal government to address its inequalities?
+
+2. How did the level of support/resistance change between the years of Obama's election and re-election, and **is the change significant**?
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+We'll start by taking an overview of how attitudes about the role of government in addressing racial inequality changed, or didn't, between 2008 and 2012.
+
+LONG NOTE: In the version of the GSS dataset provided as part of the *Inferential Statistics* MOOC, `helpblk` and other variables have been **"cleaned"** to eliminate non-answers. Unfortunately, what this means in practice is that the range of response has been transformed from a 5-level integer Likkert scale to a factored variable with just three levels: `Govt Help Blks`, `Agree With Both`, and `No Special Treatment`. 
+
+In the original data, these were points 1, 3, and 5 on the scale, respectively, and responses along the 2 and 4 points of the scale have simply been eliminated in the cleaned version -- treated as non-responses. This isn't ideal from the perspective of providing the whole picture. But since I plan to concentrate on those shifts at the end of the spectrum -- "Govt Help Blks" and "No Special Treatment" -- it will still work for our purposes (the counts for those responses are unchanged between the raw and cleaned versions of the dataset).
+
+Nevertheless, I'd first like to at least get a count of the total respondents to this question along the five-point scale. So I'm going to go back to the original dataset available directly from the GSS to get the total number of respondents to this question from 2008 and 2012, which will then be available to use in the proportion calculations derived from the cleaned dataset.
+
+```{r explore-full-dataset}
+# WARNING: The following code uses what turns out to be a very large dataset from the GSS:
+# 62,466 rows over 5,897 variables, and using 399.7 MB of memory. 
+
+# So rather than ask you to run this here and bring your computer to a grinding halt, 
+# I'll show you the steps I took -- which you could replicate on your own -- but comment them out
+# and then just show the results and store as variables the total respondents in each case.
+
+# To read in the data from the SPSS-ready format in which NORC provides the GSS data,
+# I'm following the guidelines of a tutorial by Douglas M. Wiig on his R Statistics and Programming blog at:
+# https://dmwiig.net/2014/08/03/r-tutorial-using-r-to-work-with-datasets-from-the-norc-general-social-science-survey/
+
+# First, we load in two libraries ("foreign" is native to R; "Hmisc" would need to be installed)
+
+# library(foreign)
+# library(Hmisc)
+
+# Then read in the data from the SPSS (".sav") format in which NORC provides it.
+# NOTE: I've already downloaded the .zip file to the folder in which my R project resides from
+# http://gss.norc.org/documents/spss/GSS_spss.zip
+
+# gssFull <- spss.get("GSS7216_R3.sav", use.value.labels = TRUE)
+
+# Now look at the distribution of the HELPBLK variable for 2008 and 2012. First, 2008:
+
+# gssFull %>% filter(YEAR == 2008, !is.na(HELPBLK)) %>% group_by(HELPBLK) %>% summarise(count = n())
+
+#  HELPBLK              count
+#  <fct>                <int>
+# 1 GOVT HELP BLKS         125
+# 2 2                      107
+# 3 AGREE WITH BOTH        440
+# 4 4                      253
+# 5 NO SPECIAL TREATMENT   383
+
+# With:
+# TOTAL                   1308
+
+nhelpblk2008 = 1308
+
+# And 2012:
+
+# gssFull %>% filter(YEAR == 2012, !is.na(HELPBLK)) %>% group_by(HELPBLK) %>% summarise(count = n())
+
+#  HELPBLK              count
+#  <fct>                <int>
+# 1 GOVT HELP BLKS          93
+# 2 2                      117
+# 3 AGREE WITH BOTH        394
+# 4 4                      231
+# 5 NO SPECIAL TREATMENT   447
+
+# With:
+# TOTAL                   1282
+
+nhelpblk2012 = 1282
+
+# And, just for historical interest (and because it actually complicates the point I'm trying to make!),
+# here's 2016 -- the year of Donald J. Trump's election to the U.S. presidency:
+
+# gssFull %>% filter(YEAR == 2016, !is.na(HELPBLK)) %>% group_by(HELPBLK) %>% summarise(count = n())
+
+#  HELPBLK              count
+#  <fct>                <int>
+# 1 GOVT HELP BLKS         246
+# 2 2                      220
+# 3 AGREE WITH BOTH        608
+# 4 4                      371
+# 5 NO SPECIAL TREATMENT   430
+
+# With:
+# TOTAL                   1875
+
+nhelpblk2016 = 1875
+
+```
+
+So, that is to say, for the question on the obligation of the U.S. government to "help blacks" vs. provide "no special treatment," we have `r nhelpblk2008` total responses for 2008, and `r nhelpblk2012` responses in 2012. 
+
+NOTE: Though it was good R practice to go through the original raw dataset, there is a an easier "cheater's" way -- i.e., sane person's way -- to get the same basic numbers, as published in the GSS's codebook for this data at <http://gss.norc.org/get-documentation>.
+
+We'll use these numbers as the basis for understanding the proportions of responses at either end of the the "Govt Help Blks" to "No Special Treatment" spectrum of this question. 
+
+Let's see what those **proportions** were.
+
+```{r number-of-subjects-answering-questions}
+
+answering_helpblk_2008 <- gss %>%
+  filter(year == '2008' & !is.na(helpblk)) %>%
+  group_by(helpblk) %>%
+  summarise(count08 = n(), proportions08 = n()/nhelpblk2008)
+
+answering_helpblk_2008
+
+answering_helpblk_2012 <- gss %>%
+  filter(year == '2012' & !is.na(helpblk)) %>%
+  group_by(helpblk) %>%
+  summarise(count12 = n(), proportions12 = n()/nhelpblk2012)
+
+answering_helpblk_2012
+```
+
+And now let's see **what that looks like** across these two editions of the survey:
+
+```{r plot-helpblk-2008-vs-2012}
+
+ggplot(answering_helpblk_2008, 
+       aes(x = helpblk, y = proportions08, fill = proportions08)) + geom_col()
+
+ggplot(answering_helpblk_2012, 
+       aes(x = helpblk, y = proportions12, fill = proportions12)) + geom_col()
+
+```
+
+So... there *does* seem to have been a shift to the right on this question between 2008 and 2012 -- all puns intended -- with fewer respondents agreeing with the statement "that (Blacks/Negroes/African-Americans) have been discriminated against for so long that the government has a special obligation to help improve their living standards" (a 2.3% drop), and more respondents agreeing with the statement "that the government should not be giving special treatment to (Blacks/Negroes/African-Americans)" (a 5.6% increase). (The drop in the "Agree With Both" proportion might also point to more polarized attitude on this question.)
+
+**But are these changes significant?**
+
+In the following section, we'll ask whether the tools of **statistical inference** can tell us, with confidence, whether these changes are signficant or, on the other hand, are differences we could simply expect within the scope of sampling variation.
+
+* * *
+
+## Part 4: Inference
+
+Our question about the shift in attitude on government intervention in race-based inequality is really two questions: 1) what do our sample proportions tell us about those attitudes in the target population in 2008 vs. 2012? and 2) Do the differences in the sample proportions between 2008 and 2012 suggest a significant difference in those years for that target population?
+
+### Question 1 - Sample Proportions
+
+*Q: As of 2012, how supportive/resistant are Americans to the idea that race continues to matter in U.S. life and **requires active measures** on the part of the federal government to address its inequalities?*
+
+To answer this question, we'll determine the sample proportions for the two ends of the spectrum on the GSS `helpblk` survey question for 2012, and construct **confidence intervals** around them that allow us to state, with a 95% **confidence level**, that the true population parameter -- the proportion of the full population of non-institutionalized U.S. adults who we would expect answer in the same way -- would fall within the margin of error established by these intervals.
+
+Our calculations depend on the premise of the **Central Limit Theorem** that, given what we know about the shape and spread of responses within our sample, we could assume that with enough samples we would see a distribution of the sample statistic (in this case, the proportion of our sample answering a question a particular way) that would be centered on the true **population parameter**, with a **margin of error** determined by our desired level of confidence and inversely related to our sample size. 
+
+Certain **conditions** about our sample would need to be met for this to be the case:
+
+* **Independence of observations** -- since the survey design tells us the respondents are randomly chosen, and since their number (between 1200 and 1400) is well under 10% of the total target U.S. population, this condition is met.
+* **Sample size and skew** -- for 2012, the answers to this question are somewhat left skewed, but not enough to concern us, particularly since both the number of successes and failures (those giving a particular answer vs. those not) are well above the 10 generally used as a rule of thumb for determine whether a sample meets CLT conditions.
+
+With our conditions met, we can calculate the confidence interval as: 
+
+$$CI = \hat{p} \pm Z^\star*SE$$
+
+Where $\hat{p}$ is our sample success proportion, ${Z}^\star$is the critical value (cutoff for significance) for a Z-score distribution at our desired level of confidence (for a 95% confidence level, ${Z}^\star$is approx. 1.96), and $SE$ is the standard error assumed for sampling distributions at our proportion of sample successes and sample size. 
+
+$SE$ is calculated as:
+
+$$SE = \sqrt{\frac{\hat{p}(1-\hat{p})}{n}}$$
+
+Let's construct a confidence interval for the population proportion of respondents who we would expect to answer that the government had a role to play in addressing racial inequality in 2012: 
+
+```{r defining-variables-Govt12}
+
+# Determine our desired confidence level at 95% and assign the Z* level associated with it.
+
+z_star_95 <- 1.96
+
+# For 2012, find the proportion answering "Govt Help Blks" relative to the total number of respondents
+
+nhelpblk12 <- nhelpblk2012     # from above
+
+proportion_helpblk2012 <- gss %>%
+  filter(year == '2012' & !is.na(helpblk) & helpblk == 'Govt Help Blks') %>%
+  summarise(n()/nhelpblk12)
+pGovt12 <- as.numeric(proportion_helpblk2012)
+
+# Based on success proportion and sample size, calculated the Standard Error, and from it the Margin of Error
+
+seGovt12 <- sqrt((pGovt12 * (1 - pGovt12))/nhelpblk12)
+meGovt12 <- z_star_95 * seGovt12
+
+```
+
+THE RESULTS: In terms of 2012 respondents to the `helpblk` question, `r round(pGovt12, 3)` of `r nhelpblk12` who answered on the five-point scale put their response at 1 ('Govt Help Blks'). This means that our standard error $SE$ will be the square root of `r round(pGovt12, 3)` $*$ (1 - `r round((pGovt12), 3)`) divided by `r nhelpblk12` = `r round(seGovt12, 3)`, and our margin of error $ME$ will be our ${Z}^\star$ value `r z_star_95` $*$ our $SE$ value `r round(seGovt12, 3)` $=$ `r round(meGovt12, 3)`.
+
+Our confidence interval $CI$ for this 2012 `Govt Help Blks` proportion will, therefore, be `r round(pGovt12, 3)` $\pm$ `r round(meGovt12, 3)`. This means we can say with 95% confidence that the true proportion of our 2012 target population who would say that the government should do more to help its African American citizens would fall between `r round((pGovt12 - meGovt12),3)` and `r round((pGovt12 + meGovt12), 3)`. 
+
+We can now carry this out to the four data points and confidence intervals in which we're interested for this research question, which is to say, the proportion answering `helpblk` on either end of the 1 to 5 scale ('Govt Help Blks' and 'No Special Treatment') for 2012 vs. 2008.
+
+```{r defining-variables-other}
+
+# 2012, "No Special Treatment"
+
+proportion_no_helpblk2012 <- gss %>%
+  filter(year == '2012' & !is.na(helpblk) & helpblk == 'No Special Treatment') %>%
+  summarise(n()/nhelpblk12)
+pNoSpec12 <- as.numeric(proportion_no_helpblk2012)
+meNoSpec12 <- z_star_95 * sqrt((pNoSpec12 * (1 - pNoSpec12))/nhelpblk12)
+
+# 2008, "Govt Help Blks"
+
+nhelpblk08 <- nhelpblk2008
+
+proportion_helpblk2008 <- gss %>%
+  filter(year == '2008' & !is.na(helpblk) & helpblk == 'Govt Help Blks') %>%
+  summarise(n()/nhelpblk08)
+pGovt08 <- as.numeric(proportion_helpblk2008)
+meGovt08 <- z_star_95 * sqrt((pGovt08 * (1 - pGovt08))/nhelpblk08)
+
+# 2008, "No Special Treatment"
+
+proportion_no_helpblk2008 <- gss %>%
+  filter(year == '2008' & !is.na(helpblk) & helpblk == 'No Special Treatment') %>%
+  summarise(n()/nhelpblk08)
+pNoSpec08 <- as.numeric(proportion_no_helpblk2008)
+meNoSpec08 <- z_star_95 * sqrt((pNoSpec08 * (1 - pNoSpec08))/nhelpblk08)
+
+```
+
+The confidence intervals for these four proportions, then, are:
+
+**Proportion and CI for "Govt Help Blks"**
+
+2012: `r round(pGovt12, 3)` $\pm$ `r round(meGovt12, 3)`, or (`r round((pGovt12 - meGovt12), 3)`, `r round((pGovt12 + meGovt12), 3)`)
+
+2008: `r round(pGovt08, 3)` $\pm$ `r round(meGovt08, 3)`, or (`r round((pGovt08 - meGovt08), 3)`, `r round((pGovt08 + meGovt08), 3)`)
+
+**Proportion and CI for "No Special Treatment"**
+
+2012: `r round(pNoSpec12, 3)` $\pm$ `r round(meNoSpec12, 3)`, or (`r round((pNoSpec12 - meNoSpec12), 3)`, `r round((pNoSpec12 + meNoSpec12), 3)`)
+
+2008: `r round(pNoSpec08, 3)` $\pm$ `r round(meNoSpec08, 3)`, or (`r round((pNoSpec08 - meNoSpec08), 3)`, `r round((pNoSpec08 + meNoSpec08), 3)`)
+
+Now that we understand what we can infer about target population attitudes on this question, we can address whether the changes we're seeing in our sample proportions between 2008 and 2012 are significant, which we now do in answer to the following question.
+
+### Question 2 - Differences Between Two Proportions
+
+*Q: How did the level of support/resistance change between the years of Obama's election and re-election, and is the change significant*
+
+We know that the numbers are different between 2008 and 2012. But are those differences statistically important? We'll set up a hypothesis test to find out. 
+
+Here, our null hypothesis is that there is no difference in the population proportions between 2008 and 2012, and our alternative hypothesis is that there is some difference:
+
+$$h0: p08 - p12 = 0$$
+$$ha: p08 - p12 x= 0$$
+Our conditions for conducting this test in relation to the Central Limit Theoresm remain in place: the samples are independent and and the size/skew of our sample raises no red flags.
+
+so then (obs - null)/se 
+
+With se = pooled proportion.
+
+```{r figuring-out-difference}
+
+# Write stuff
+# Construct hypothesis (conditions)
+# Don't forget about pooled porportion
+# Figure out diff for yes-help: manually, then with inference formula
+# Figure out diff for no-special: manually, then with inference formula
+
+```
+
+## Limitations and Future Directions
+
+The implications of my findings are that, between 2008 and 2012, attitudes among the general adult, non-institutionalized U.S. population hardened against the idea that the government had a role in addressing the historical and structural inequalities faced by African American citizens. And, one could speculate, this shift was part of a backlash against the 2008 election of the U.S.'s first black president and a hint at the swing to the right that anticipated the 2016 election of Donald J. Trump. 
+
+But there are two significant questions we might ask that would complicate this narrative.
+
+1. First, we might want to ask if this shift had anything in particular to do with race, or whether it was part of a more general shift of the sort that brought the "Tea Party" wave in the 2010 midterm elections. Were changes in attitude with respect to federal intervention in race matter sharper than that broader shift against the idea of government intervention in general? In particular, were the changes more significant than those in areas coded as non-racial, such as the GSS questions about the government's role in providing access to healthcare or addressing income inequality? 
+
+2. And, second, was the change between 2008 and 2012 part of a larger historical trend or a blip in the larger narrative? In this sense, the answer to the GSS `helpblk` question in 2016 -- the year of Trump's electoral victory -- is interesting and instructive, as we'll see below:
+
+```{r comparison-to-2016}
+
+# Earlier in this analysis, we gathered the relevant data for 2016. Remember the results we found,
+# based upon the full uncleaned GSS dataset:
+
+# gssFull %>% filter(YEAR == 2016, !is.na(HELPBLK)) %>% group_by(HELPBLK) %>% summarise(count = n())
+
+#  HELPBLK              count
+#  <fct>                <int>
+# 1 GOVT HELP BLKS         246
+# 2 2                      220
+# 3 AGREE WITH BOTH        608
+# 4 4                      371
+# 5 NO SPECIAL TREATMENT   430
+# TOTAL                   1875
+
+nhelpblk2016 = 1875
+
+
+
+```
